@@ -1,5 +1,6 @@
 # Stage 1: Build the React app
 FROM node:18-alpine AS build
+ENV NODE_OPTIONS=--openssl-legacy-provider
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
