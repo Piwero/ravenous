@@ -37,7 +37,15 @@ git push origin v1.0.0
 
 1. Go to **Actions** > **Build and Push Docker Image**
 2. Click **Run workflow**
-3. Enter the version tag (e.g. `v1.0.0`)
+3. Select the bump type: **MAJOR**, **MINOR**, **PATCH**, or **RC**
 4. Click **Run workflow**
 
-This will create the git tag and build + push the Docker image to GHCR.
+The workflow finds the latest tag and calculates the next version automatically:
+
+| Current tag | Bump  | New tag       |
+|-------------|-------|---------------|
+| none        | PATCH | `v0.0.1`      |
+| `v0.0.1`   | RC    | `v0.0.2-rc`   |
+| `v0.0.1`   | MINOR | `v0.1.0`      |
+| `v0.1.0`   | PATCH | `v0.1.1`      |
+| `v0.1.1`   | MAJOR | `v1.0.0`      |

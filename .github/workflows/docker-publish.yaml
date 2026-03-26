@@ -6,10 +6,15 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version tag to create and publish (e.g. v1.0.0)'
+      bump:
+        description: 'Version bump type'
         required: true
-        type: string
+        type: choice
+        options:
+          - PATCH
+          - MINOR
+          - MAJOR
+          - RC
 
 env:
   REGISTRY: ghcr.io
@@ -25,18 +30,60 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate next version
+        if: github.event_name == 'workflow_dispatch'
+        id: bump
+        run: |
+          LATEST=$(git tag -l 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+
+          if [ -z "$LATEST" ]; then
+            MAJOR=0 MINOR=0 PATCH=0
+          else
+            VERSION=${LATEST#v}
+            MAJOR=$(echo "$VERSION" | cut -d. -f1)
+            MINOR=$(echo "$VERSION" | cut -d. -f2)
+            PATCH=$(echo "$VERSION" | cut -d. -f3)
+          fi
+
+          case "${{ inputs.bump }}" in
+            MAJOR)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              TAG="v${MAJOR}.${MINOR}.${PATCH}"
+              ;;
+            MINOR)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              TAG="v${MAJOR}.${MINOR}.${PATCH}"
+              ;;
+            PATCH)
+              PATCH=$((PATCH + 1))
+              TAG="v${MAJOR}.${MINOR}.${PATCH}"
+              ;;
+            RC)
+              PATCH=$((PATCH + 1))
+              TAG="v${MAJOR}.${MINOR}.${PATCH}-rc"
+              ;;
+          esac
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Bumping from ${LATEST:-none} to $TAG"
 
       - name: Create and push tag
         if: github.event_name == 'workflow_dispatch'
         run: |
-          git tag ${{ inputs.version }}
-          git push origin ${{ inputs.version }}
+          git tag ${{ steps.bump.outputs.tag }}
+          git push origin ${{ steps.bump.outputs.tag }}
 
       - name: Resolve version tag
         id: version
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "tag=${{ steps.bump.outputs.tag }}" >> "$GITHUB_OUTPUT"
           else
             echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
           fi
